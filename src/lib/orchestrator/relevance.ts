@@ -19,8 +19,18 @@ const offNicheSignals = [
   'odds', 'weather', 'heat advisory', 'stock price', 'earnings call', 'giveaway',
 ];
 
+// rss-parser/xml2js can surface categories as element objects rather than strings
+// (e.g. TheWrap's attr-bearing <category> elements arrive null-prototype).
+// Null-prototype objects throw on join()/String(), so coerce every part first,
+// pulling the text node out of element objects. Defense in depth for all sources.
+function partToText(part: unknown): string {
+  if (typeof part === 'string') return part;
+  const textNode = (part as { _?: unknown } | null | undefined)?._;
+  return typeof textNode === 'string' ? textNode : String(textNode ?? '');
+}
+
 export function isRelevantScreenItem(item: RawItem): boolean {
-  const text = [item.title, item.summary, ...(item.tags || [])].filter(Boolean).join(' ').toLowerCase();
+  const text = [item.title, item.summary, ...(item.tags || [])].map(partToText).filter(Boolean).join(' ').toLowerCase();
   const filmMatch = filmSignals.some((term) => containsTerm(text, term));
   if (!filmMatch) return false;
   return !offNicheSignals.some((term) => containsTerm(text, term)) || containsTerm(text, 'documentary') || containsTerm(text, 'film');
